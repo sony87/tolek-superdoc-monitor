@@ -34,28 +34,30 @@ def check_appointments():
         
         try:
             page.goto(URL, wait_until="networkidle", timeout=40000)
-            time.sleep(7)   # повече време за зареждане
+            time.sleep(8)  # повече време за JS
             
-            # По-точно търсене
+            # По-ефективно търсене
             body_text = page.inner_text("body")
-            page_text_lower = body_text.lower()
             
-            if "най-ранен час" in page_text_lower:
-                # Търсим целия ред
-                lines = [line.strip() for line in body_text.splitlines() if line.strip()]
+            # Търсим точно фразата
+            if "Най-ранен час" in body_text:
+                lines = body_text.splitlines()
                 for line in lines:
-                    if "Най-ранен час" in line or "най-ранен час" in line.lower():
-                        print(f"📅 Намерено: {line}")
-                        # Изпращаме ако е по-рано от ноември
-                        if any(m in line.lower() for m in ["юли", "август", "септември", "октомври"]):
-                            send_telegram(line)
+                    if "Най-ранен час" in line:
+                        earliest_line = line.strip()
+                        print(f"📅 Намерено: {earliest_line}")
+                        
+                        # Изпращаме само ако е по-рано от ноември
+                        lower_line = earliest_line.lower()
+                        if any(m in lower_line for m in ["юли", "август", "септември", "октомври"]):
+                            send_telegram(earliest_line)
                         else:
                             print("Все още ноември или по-късно")
-                        return  # спираме след първото намиране
+                        return
                 print("Намерих 'Най-ранен час', но не можах да извлека реда")
             else:
-                print("Не открих 'Най-ранен час' в текста")
-                print("Първите 500 символа:", body_text[:500])
+                print("Не открих 'Най-ранен час'")
+                print("Първите 300 символа от страницата:", body_text[:300])
                 
         except Exception as e:
             error_msg = f"Грешка: {str(e)[:200]}"
