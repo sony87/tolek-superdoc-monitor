@@ -14,23 +14,20 @@ def send_telegram(message):
     if not TELEGRAM_TOKEN or not CHAT_ID:
         print("⚠️ Telegram не е конфигуриран")
         return
-    text = f"🔔 **ТОЛЕК София - Намерен по-ранен час!**\n\n{message}\n\n🔗 [Отвори SuperDoc]({URL})"
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-            json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"},
-            timeout=10
-        )
-        print("✅ Telegram изпратен")
-    except Exception as e:
-        print("❌ Грешка Telegram:", e)
+    text = f"🔔 **ТОЛЕК София**\n\n{message}\n\n🔗 [Отвори SuperDoc]({URL})"
+    requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+        json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"},
+        timeout=10
+    )
+    print("✅ Telegram изпратен")
 
 def should_send_daily_summary():
     try:
         if os.path.exists(LAST_SUMMARY_FILE):
             with open(LAST_SUMMARY_FILE, "r") as f:
-                last_date = f.read().strip()
-            if last_date == datetime.date.today().isoformat():
+                last = f.read().strip()
+            if last == datetime.date.today().isoformat():
                 return False
         with open(LAST_SUMMARY_FILE, "w") as f:
             f.write(datetime.date.today().isoformat())
@@ -39,7 +36,7 @@ def should_send_daily_summary():
         return True
 
 def check_appointments():
-    print(f"[{datetime.datetime.now()}] 🔍 Проверка на SuperDoc...")
+    print(f"[{datetime.datetime.now()}] 🔍 Проверка...")
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -47,38 +44,36 @@ def check_appointments():
         
         try:
             page.goto(URL, wait_until="networkidle", timeout=60000)
-            time.sleep(10)   # повече време
+            time.sleep(10)
             
             body_text = page.inner_text("body")
             
-            # По-агресивно търсене
-            earliest_line = "Не открит"
+            # === Агресивно търсене ===
+            earliest = "Не открит"
             
             if "Най-ранен час" in body_text:
-                lines = [line.strip() for line in body_text.splitlines() if line.strip()]
-                for i, line in enumerate(lines):
+                # Търсим точния ред
+                for line in body_text.splitlines():
                     if "Най-ранен час" in line:
-                        earliest_line = line
-                        # Ако датата е на следващия ред
-                        if i + 1 < len(lines) and any(x in lines[i+1] for x in ["ноември", "октомври", "септември"]):
-                            earliest_line += " " + lines[i+1]
-                        print(f"📅 **НАМЕРЕНО:** {earliest_line}")
+                        earliest = line.strip()
+                        print(f"✅ НАМЕРЕНО: {earliest}")
                         break
             
-            # Логика
-            lower = earliest_line.lower()
+            print(f"📋 Пълен текст на реда: {earliest}")
             
-            if any(m in lower for m in ["юли", "август", "септември", "октомври"]):
-                send_telegram(earliest_line)
+            # Логика
+            lower = earliest.lower()
+            if any(x in lower for x in ["юли", "август", "септември", "октомври"]):
+                send_telegram(earliest)
                 print("🎉 По-ранен час!")
             elif "ноември" in lower or "декември" in lower:
                 if should_send_daily_summary():
-                    send_telegram(f"📊 Дневен summary:\n{earliest_line}")
-                    print("📊 Daily summary изпратен")
+                    send_telegram(f"📊 Дневен summary:\n{earliest}")
+                    print("📊 Daily summary")
                 else:
-                    print("📊 Summary вече пратен днес")
+                    print("📊 Summary вече пратен")
             else:
-                send_telegram(earliest_line)
+                send_telegram(earliest)
                 
         except Exception as e:
             print(f"❌ Грешка: {e}")
