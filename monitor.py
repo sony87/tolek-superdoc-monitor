@@ -38,33 +38,26 @@ def check_appointments():
             
             body_text = page.inner_text("body")
             
-            # По-умно търсене
+            # По-добро търсене
             if "Най-ранен час" in body_text:
-                # Търсим целия ред, който съдържа "Най-ранен час"
                 lines = body_text.splitlines()
                 for line in lines:
                     if "Най-ранен час" in line:
-                        # Почистваме и взимаме целия текст
                         earliest_line = line.strip()
-                        # Ако е само "Най-ранен час:", търсим в следващите няколко реда
-                        if earliest_line.endswith("Най-ранен час:") or earliest_line.endswith("Най-ранен час"):
-                            # Проверяваме следващите редове
-                            idx = lines.index(line)
-                            for i in range(idx, min(idx+5, len(lines))):
-                                if any(x in lines[i] for x in ["ноември", "октомври", "септември", "август", "юли"]):
-                                    earliest_line = lines[i].strip()
-                                    break
-                        
                         print(f"📅 Намерено: {earliest_line}")
                         
+                        # Изпращаме винаги пълния ред за тестване
+                        send_telegram(earliest_line)
+                        
+                        # Допълнителна проверка за по-ранен час
                         lower = earliest_line.lower()
                         if any(m in lower for m in ["юли", "август", "септември", "октомври"]):
-                            send_telegram(earliest_line)
+                            print("🎉 Намерен по-ранен час!")
                         else:
                             print("Все още ноември или по-късно")
                         return
                 
-                print("Намерих 'Най-ранен час', но не можах да извлека пълния текст")
+                print("Не успях да извлека реда")
             else:
                 print("Не открих 'Най-ранен час'")
                 
