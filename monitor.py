@@ -46,43 +46,43 @@ def check_appointments():
         page = browser.new_page()
         
         try:
-            page.goto(URL, wait_until="networkidle", timeout=40000)
-            time.sleep(8)
+            page.goto(URL, wait_until="networkidle", timeout=60000)
+            time.sleep(10)   # повече време
             
             body_text = page.inner_text("body")
             
+            # По-агресивно търсене
             earliest_line = "Не открит"
             
-            # По-точно търсене според актуалната структура на страницата
             if "Най-ранен час" in body_text:
-                lines = body_text.splitlines()
-                for line in lines:
+                lines = [line.strip() for line in body_text.splitlines() if line.strip()]
+                for i, line in enumerate(lines):
                     if "Най-ранен час" in line:
-                        earliest_line = line.strip()
-                        print(f"📅 Намерено: {earliest_line}")
+                        earliest_line = line
+                        # Ако датата е на следващия ред
+                        if i + 1 < len(lines) and any(x in lines[i+1] for x in ["ноември", "октомври", "септември"]):
+                            earliest_line += " " + lines[i+1]
+                        print(f"📅 **НАМЕРЕНО:** {earliest_line}")
                         break
             
-            print(f"📋 Пълен ред: {earliest_line}")
-            
-            # === Умна логика ===
+            # Логика
             lower = earliest_line.lower()
             
             if any(m in lower for m in ["юли", "август", "септември", "октомври"]):
-                print("🎉 ПО-РАНЕН ЧАС НАМЕРЕН!")
                 send_telegram(earliest_line)
+                print("🎉 По-ранен час!")
             elif "ноември" in lower or "декември" in lower:
                 if should_send_daily_summary():
-                    send_telegram(f"📊 Дневен summary:\n{earliest_line}\n(Все още няма по-ранни дати)")
-                    print("📊 Изпратен daily summary")
+                    send_telegram(f"📊 Дневен summary:\n{earliest_line}")
+                    print("📊 Daily summary изпратен")
                 else:
                     print("📊 Summary вече пратен днес")
             else:
                 send_telegram(earliest_line)
                 
         except Exception as e:
-            error_msg = f"Грешка: {str(e)[:150]}"
-            print(error_msg)
-            send_telegram(error_msg)
+            print(f"❌ Грешка: {e}")
+            send_telegram(f"Грешка: {str(e)[:100]}")
         finally:
             browser.close()
 
