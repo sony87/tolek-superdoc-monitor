@@ -8,6 +8,9 @@ URL = "https://superdoc.bg/lekar/transportna-oblastna-lekarska-ekspertna-komisia
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
+# Файл за запомняне на последния summary
+LAST_SUMMARY_FILE = "last_summary.txt"
+
 def send_telegram(message):
     if not TELEGRAM_TOKEN or not CHAT_ID:
         print("⚠️ Telegram не е конфигуриран")
@@ -20,6 +23,22 @@ def send_telegram(message):
     )
     print("✅ Telegram изпратен")
 
+def should_send_daily_summary():
+    """Праща summary само веднъж на ден"""
+    try:
+        if os.path.exists(LAST_SUMMARY_FILE):
+            with open(LAST_SUMMARY_FILE, "r") as f:
+                last_date = f.read().strip()
+            today = datetime.date.today().isoformat()
+            if last_date == today:
+                return False
+        # Записваме днешната дата
+        with open(LAST_SUMMARY_FILE, "w") as f:
+            f.write(datetime.date.today().isoformat())
+        return True
+    except:
+        return True  # ако има грешка, пращаме
+
 def check_appointments():
     print(f"[{datetime.datetime.now()}] 🔍 Проверка на SuperDoc...")
     
@@ -31,29 +50,41 @@ def check_appointments():
             page.goto(URL, wait_until="networkidle", timeout=40000)
             time.sleep(8)
             
-            # По-точно извличане
             body_text = page.inner_text("body")
             
-            # Търсим линията с "Най-ранен час"
+            earliest_line = "Не открит"
+            
             if "Най-ранен час" in body_text:
-                lines = [line.strip() for line in body_text.splitlines() if line.strip()]
-                for i, line in enumerate(lines):
+                lines = body_text.splitlines()
+                for line in lines:
                     if "Най-ранен час" in line:
-                        # Ако е празно след :, взимаме следващия ред или конкатенираме
-                        full_line = line
-                        if ":" in line and len(line.split(":", 1)[1].strip()) < 5 and i + 1 < len(lines):
-                            full_line = line + " " + lines[i + 1]
-                        
-                        print(f"📅 **НАМЕРЕНО:** {full_line}")
-                        send_telegram(full_line)   # Винаги изпращаме за тестване
-                        return
+                        earliest_line = line.strip()
+                        print(f"📅 Намерено: {earliest_line}")
+                        break
+            
+            # === Логика за уведомяване ===
+            lower = earliest_line.lower()
+            
+            # Ако има дата преди ноември → ВЕДНАГА уведоми
+            if any(m in lower for m in ["юли", "август", "септември", "октомври"]):
+                print("🎉 🎉 ПО-РАНЕН ЧАС НАМЕРЕН!")
+                send_telegram(earliest_line)
+            
+            # Ако все още е ноември или по-късно → daily summary
+            elif "ноември" in lower or "декември" in lower:
+                if should_send_daily_summary():
+                    send_telegram(f"📊 Дневен summary:\n{earliest_line}\n(Все още няма по-ранни дати)")
+                    print("📊 Изпратен daily summary")
+                else:
+                    print("📊 Все още ноември - daily summary вече е пратен днес")
             else:
-                print("Не открих 'Най-ранен час'")
-                print("Първите 400 символа:", body_text[:400])
+                print("Неизвестна дата")
+                send_telegram(earliest_line)
                 
         except Exception as e:
-            print(f"❌ Грешка: {e}")
-            send_telegram(f"Грешка: {str(e)[:150]}")
+            error_msg = f"Грешка при проверка: {str(e)[:150]}"
+            print(error_msg)
+            send_telegram(error_msg)
         finally:
             browser.close()
 
