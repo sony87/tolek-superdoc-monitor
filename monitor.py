@@ -47,13 +47,13 @@ def check_appointments():
         
         try:
             page.goto(URL, wait_until="networkidle", timeout=40000)
-            time.sleep(7)
+            time.sleep(8)
             
             body_text = page.inner_text("body")
             
             earliest_line = "Не открит"
             
-            # Работещо търсене (според актуалната структура)
+            # По-точно търсене според актуалната структура на страницата
             if "Най-ранен час" in body_text:
                 lines = body_text.splitlines()
                 for line in lines:
@@ -62,19 +62,20 @@ def check_appointments():
                         print(f"📅 Намерено: {earliest_line}")
                         break
             
+            print(f"📋 Пълен ред: {earliest_line}")
+            
             # === Умна логика ===
             lower = earliest_line.lower()
             
             if any(m in lower for m in ["юли", "август", "септември", "октомври"]):
                 print("🎉 ПО-РАНЕН ЧАС НАМЕРЕН!")
                 send_telegram(earliest_line)
-            
             elif "ноември" in lower or "декември" in lower:
                 if should_send_daily_summary():
                     send_telegram(f"📊 Дневен summary:\n{earliest_line}\n(Все още няма по-ранни дати)")
                     print("📊 Изпратен daily summary")
                 else:
-                    print("📊 Все още ноември - summary вече пратен днес")
+                    print("📊 Summary вече пратен днес")
             else:
                 send_telegram(earliest_line)
                 
