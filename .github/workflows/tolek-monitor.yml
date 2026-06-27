@@ -2,8 +2,8 @@ name: TOLEK SuperDoc Monitor
 
 on:
   schedule:
-    - cron: '*/10 * * * *'     # на всеки 10 минути
-  workflow_dispatch:           # позволява ръчно пускане
+    - cron: '7,22,37,52 * * * *'   # ← На всеки ~15 минути с offset
+  workflow_dispatch:               # Ръчно пускане
 
 jobs:
   monitor:
@@ -24,9 +24,8 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run monitor
-      
         env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         run: python monitor.py
